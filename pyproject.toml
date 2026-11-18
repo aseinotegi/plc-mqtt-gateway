@@ -31,7 +31,7 @@ plc-sim = "plc_gateway.simulator:main"
 
 [project.urls]
 Homepage = "https://andersein.com"
-Source = "https://github.com/aseinotegi/snap7_PLC_adquisition"
+Source = "https://github.com/aseinotegi/plc-mqtt-gateway"
 
 [tool.setuptools.packages.find]
 where = ["src"]

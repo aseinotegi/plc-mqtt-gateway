@@ -1,6 +1,6 @@
 # PLC → MQTT Gateway (Siemens S7)
 
-[![CI](https://github.com/aseinotegi/snap7_PLC_adquisition/actions/workflows/ci.yml/badge.svg)](https://github.com/aseinotegi/snap7_PLC_adquisition/actions/workflows/ci.yml)
+[![CI](https://github.com/aseinotegi/plc-mqtt-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/aseinotegi/plc-mqtt-gateway/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -126,7 +126,7 @@ CI runs them on Python 3.10–3.13 and builds the Docker image on every push.
 
 ## History
 
-The first version was a pair of scripts publishing raw dictionaries to RabbitMQ. It is kept in the git history ([`a8a701d`](https://github.com/aseinotegi/snap7_PLC_adquisition/tree/a8a701d)); this rewrite turns the same idea into a configurable, tested service.
+The first version was a pair of scripts publishing raw dictionaries to RabbitMQ. It is kept in the git history ([`a8a701d`](https://github.com/aseinotegi/plc-mqtt-gateway/tree/a8a701d)); this rewrite turns the same idea into a configurable, tested service.
 
 ---
 
