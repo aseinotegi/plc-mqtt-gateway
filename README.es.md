@@ -126,7 +126,7 @@ La CI los ejecuta en Python 3.10–3.13 y construye la imagen Docker en cada pus
 
 ## Historia
 
-La primera versión eran dos scripts que enviaban diccionarios a RabbitMQ. Se conserva en el historial con la etiqueta `v0-scripts`; esta reescritura convierte la misma idea en un servicio configurable y probado.
+La primera versión eran dos scripts que enviaban diccionarios a RabbitMQ. Se conserva en el historial ([`a8a701d`](https://github.com/aseinotegi/snap7_PLC_adquisition/tree/a8a701d)); esta reescritura convierte la misma idea en un servicio configurable y probado.
 
 ---
 

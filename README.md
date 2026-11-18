@@ -126,7 +126,7 @@ CI runs them on Python 3.10–3.13 and builds the Docker image on every push.
 
 ## History
 
-The first version was a pair of scripts publishing raw dictionaries to RabbitMQ. It is kept in the git history under the tag `v0-scripts`; this rewrite turns the same idea into a configurable, tested service.
+The first version was a pair of scripts publishing raw dictionaries to RabbitMQ. It is kept in the git history ([`a8a701d`](https://github.com/aseinotegi/snap7_PLC_adquisition/tree/a8a701d)); this rewrite turns the same idea into a configurable, tested service.
 
 ---
 
