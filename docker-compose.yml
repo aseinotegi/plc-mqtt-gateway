@@ -1,0 +1,30 @@
+# Demo stack: simulated PLC -> gateway -> Mosquitto, plus a subscriber that prints
+# everything. Run `docker compose up --build` and watch the `monitor` output.
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  plc-sim:
+    build: .
+    image: plc-gateway:local
+    entrypoint: ["plc-sim", "--port", "1102"]
+
+  gateway:
+    image: plc-gateway:local
+    depends_on: [mosquitto, plc-sim]
+    restart: unless-stopped
+    environment:
+      PLC_HOST: plc-sim
+      PLC_PORT: "1102"
+      MQTT_HOST: mosquitto
+    volumes:
+      - ./config/example.yaml:/config/config.yaml:ro
+
+  monitor:
+    image: eclipse-mosquitto:2
+    depends_on: [mosquitto]
+    command: ["mosquitto_sub", "-h", "mosquitto", "-t", "plant/#", "-v"]
