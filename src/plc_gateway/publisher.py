@@ -14,7 +14,9 @@ log = logging.getLogger(__name__)
 
 
 class Publisher(Protocol):
-    def publish(self, subtopic: str, payload: dict[str, Any], retain: bool | None = None) -> None: ...
+    def publish(
+        self, subtopic: str, payload: dict[str, Any], retain: bool | None = None, absolute: bool = False
+    ) -> None: ...
 
 
 def encode(payload: dict[str, Any]) -> str:
@@ -26,7 +28,8 @@ class MqttPublisher:
 
     * ``<base>/status`` (retained): gateway and PLC state. The broker publishes
       ``{"gateway": "offline"}`` by itself if the gateway dies (Last Will).
-    * ``<base>/tags/<name>`` (retained): ``{"value": ..., "ts": ..., "unit": ...}``.
+    * ``<base>/tags/<name>`` (retained): ``{"value": ..., "ts": ..., "unit": ...}``,
+      or the tag's own ``topic`` when it has one (to publish straight into a UNS).
     * ``<base>/stats``: counters sent with every heartbeat.
 
     paho-mqtt reconnects on its own; messages with QoS >= 1 are queued meanwhile.
@@ -49,9 +52,12 @@ class MqttPublisher:
         self._client.connect_async(self._cfg.host, self._cfg.port, keepalive=30)
         self._client.loop_start()
 
-    def publish(self, subtopic: str, payload: dict[str, Any], retain: bool | None = None) -> None:
+    def publish(
+        self, subtopic: str, payload: dict[str, Any], retain: bool | None = None, absolute: bool = False
+    ) -> None:
         retain = self._cfg.retain if retain is None else retain
-        self._client.publish(self.topic(subtopic), encode(payload), qos=self._cfg.qos, retain=retain)
+        topic = subtopic if absolute else self.topic(subtopic)
+        self._client.publish(topic, encode(payload), qos=self._cfg.qos, retain=retain)
 
     def stop(self) -> None:
         info = self._client.publish(self.topic("status"), encode({"gateway": "offline"}), qos=1, retain=True)

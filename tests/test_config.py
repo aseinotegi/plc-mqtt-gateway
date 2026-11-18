@@ -66,3 +66,14 @@ def test_duplicated_tag_names():
     tags = [{"name": "a", "address": "DB1.DBD0", "type": "REAL"}] * 2
     with pytest.raises(ConfigError, match="duplicated"):
         parse_config(minimal(tags=tags))
+
+
+BAD_TOPICS = ["planta1/+/presion", "/planta1/pt-104", "planta1//pt-104", "planta1/pt-104/", "a b"]
+
+
+@pytest.mark.parametrize("topic", BAD_TOPICS)
+def test_rejects_invalid_tag_topics(topic):
+    tag = {"name": "p", "address": "DB1.DBD0", "type": "REAL", "topic": topic}
+    raw = {"plc": {"host": "plc"}, "tags": [tag]}
+    with pytest.raises(ConfigError, match="topic"):
+        parse_config(raw)

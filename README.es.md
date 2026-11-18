@@ -67,6 +67,8 @@ tags:
   - { name: pump_running,    address: DB1.DBX0.0, type: BOOL }
   - { name: machine_state,   address: DB1.DBW2,   type: INT }
   - { name: pi_104_pressure, address: DB1.DBD8,   type: REAL, unit: bar, deadband: 0.05 }
+  # opcional: publicar directamente en una ruta del Unified Namespace en vez de <base>/tags/<nombre>
+  - { name: pt_104_pressure, address: DB1.DBD20,  type: REAL, unit: bar, topic: planta1/exterior/pt-104/presion }
 ```
 
 Tipos soportados: `BOOL`, `BYTE`, `INT`, `WORD`, `DINT`, `DWORD`, `REAL`. Se comprueba que el ancho de la dirección coincide con el tipo: un `DBD` declarado como `INT` se rechaza al arrancar, no a las 3 de la mañana.
@@ -80,6 +82,7 @@ Hosts y secretos llegan por variables de entorno, nunca por el fichero: `PLC_HOS
 | Topic | Retenido | Contenido |
 |---|---|---|
 | `<base>/tags/<nombre>` | sí | `{"value": 4.23, "ts": "…+00:00", "unit": "bar"}` |
+| el `topic` de la variable, si lo tiene | sí | el mismo payload, en una ruta absoluta (por ejemplo del UNS). Lo usa [industrial-uns-demo](https://github.com/aseinotegi/industrial-uns-demo) |
 | `<base>/status` | sí | `{"gateway": "online"}` · si la pasarela muere, el broker publica `offline` (Last Will) |
 | `<base>/status/plc` | sí | `{"state": "connected" \| "disconnected", "ts": "…", "error": "…"}` |
 | `<base>/stats` | no | lecturas, errores, valores publicados, reconexiones, tiempo de ciclo |
@@ -112,7 +115,7 @@ tests/           tests unitarios + integración contra un servidor Snap7 real
 ## Tests
 
 ```bash
-pytest -q        # 40 tests, incluida una lectura S7 real contra el simulador
+pytest -q        # 46 tests, incluida una lectura S7 real contra el simulador
 ruff check .
 ```
 

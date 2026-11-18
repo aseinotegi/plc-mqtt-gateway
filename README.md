@@ -67,6 +67,8 @@ tags:
   - { name: pump_running,    address: DB1.DBX0.0, type: BOOL }
   - { name: machine_state,   address: DB1.DBW2,   type: INT }
   - { name: pi_104_pressure, address: DB1.DBD8,   type: REAL, unit: bar, deadband: 0.05 }
+  # optional: publish straight into a Unified Namespace path instead of <base>/tags/<name>
+  - { name: pt_104_pressure, address: DB1.DBD20,  type: REAL, unit: bar, topic: planta1/exterior/pt-104/presion }
 ```
 
 Supported types: `BOOL`, `BYTE`, `INT`, `WORD`, `DINT`, `DWORD`, `REAL`. The address width is checked against the type (`DBD` with `INT` is rejected at start-up, not at 3 a.m.).
@@ -80,6 +82,7 @@ Hosts and secrets come from the environment and never from the file: `PLC_HOST`,
 | Topic | Retained | Payload |
 |---|---|---|
 | `<base>/tags/<name>` | yes | `{"value": 4.23, "ts": "…+00:00", "unit": "bar"}` |
+| the tag's `topic`, if set | yes | same payload, at an absolute path (e.g. a UNS path). Used by [industrial-uns-demo](https://github.com/aseinotegi/industrial-uns-demo) |
 | `<base>/status` | yes | `{"gateway": "online"}` · broker publishes `offline` via Last Will if the gateway dies |
 | `<base>/status/plc` | yes | `{"state": "connected" \| "disconnected", "ts": "…", "error": "…"}` |
 | `<base>/stats` | no | reads, read errors, published values, reconnects, cycle time |
@@ -112,7 +115,7 @@ tests/           unit tests + integration test against a real Snap7 server
 ## Tests
 
 ```bash
-pytest -q        # 40 tests, including a real S7 round-trip against the simulator
+pytest -q        # 46 tests, including a real S7 round-trip against the simulator
 ruff check .
 ```
 

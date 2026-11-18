@@ -30,8 +30,8 @@ class FakePublisher:
     def __init__(self):
         self.messages = []
 
-    def publish(self, subtopic, payload, retain=None):
-        self.messages.append((subtopic, payload))
+    def publish(self, subtopic, payload, retain=None, absolute=False):
+        self.messages.append((("/" if absolute else "") + subtopic, payload))
 
     def take(self):
         out, self.messages = self.messages, []
@@ -125,3 +125,28 @@ def test_read_failure_reconnects_and_republishes_full_snapshot(setup):
     msgs = pub.take()
     assert topics(msgs)[:3] == ["status/plc", "tags/pressure", "tags/running"]
     assert gw.stats.reconnects == 1
+
+
+def test_tag_with_its_own_topic_is_published_there():
+    cfg = parse_config(
+        {
+            "plc": {"host": "plc"},
+            "tags": [
+                {
+                    "name": "pt_104",
+                    "address": "DB1.DBD0",
+                    "type": "REAL",
+                    "unit": "bar",
+                    "topic": "planta1/exterior/pt-104/presion",
+                },
+                {"name": "running", "address": "DB1.DBX4.0", "type": "BOOL"},
+            ],
+        }
+    )
+    reader, pub, clock = FakeReader(), FakePublisher(), Clock()
+    reader.values = {"pt_104": 6.7, "running": True}
+    Gateway(cfg, reader, pub, clock=clock, monotonic=clock).step()
+    published = dict(pub.take())
+    assert published["/planta1/exterior/pt-104/presion"]["value"] == 6.7
+    assert published["/planta1/exterior/pt-104/presion"]["unit"] == "bar"
+    assert "tags/running" in published

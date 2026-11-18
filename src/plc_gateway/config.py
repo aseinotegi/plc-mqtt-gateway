@@ -99,7 +99,7 @@ def parse_config(raw: dict) -> Config:
     for i, item in enumerate(tags_raw):
         if not isinstance(item, dict) or not {"name", "address", "type"} <= item.keys():
             raise ConfigError(f"tag #{i + 1} needs 'name', 'address' and 'type'")
-        extra = {k: item[k] for k in ("deadband", "unit") if k in item}
+        extra = {k: item[k] for k in ("deadband", "unit", "topic") if k in item}
         try:
             tags.append(Tag.from_address(str(item["name"]), str(item["address"]), str(item["type"]), **extra))
         except TagError as exc:

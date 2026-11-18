@@ -13,6 +13,8 @@ _STRUCT_FMT = {"BYTE": ">B", "INT": ">h", "WORD": ">H", "DINT": ">i", "DWORD": "
 _ADDRESS_WIDTH = {"X": 1, "B": 1, "W": 2, "D": 4}
 _ADDRESS_RE = re.compile(r"^DB(\d+)\.DB([XBWD])(\d+)(?:\.([0-7]))?$", re.IGNORECASE)
 _NAME_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
+# Absolute MQTT topic: no wildcards, no empty levels, no leading or trailing slash.
+_TOPIC_RE = re.compile(r"^[^/+#\s]+(/[^/+#\s]+)*$")
 
 # A single S7 PDU (240 bytes) carries ~222 bytes of payload; stay below it so every
 # block is fetched in one request.
@@ -54,6 +56,7 @@ class Tag:
     bit: int | None = None
     deadband: float = 0.0
     unit: str | None = None
+    topic: str | None = None  # absolute topic (e.g. a UNS path) instead of <base>/tags/<name>
 
     def __post_init__(self) -> None:
         if not _NAME_RE.match(self.name):
@@ -68,6 +71,8 @@ class Tag:
             raise TagError(f"tag '{self.name}': bit must be between 0 and 7")
         if self.deadband < 0:
             raise TagError(f"tag '{self.name}': deadband must be >= 0")
+        if self.topic is not None and not _TOPIC_RE.match(self.topic):
+            raise TagError(f"tag '{self.name}': topic '{self.topic}' must be a path like area/device/value")
 
     @classmethod
     def from_address(cls, name: str, address: str, type: str, **extra) -> Tag:

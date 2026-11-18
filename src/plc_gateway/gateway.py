@@ -60,6 +60,7 @@ class Gateway:
     ) -> None:
         self._cfg = config.gateway
         self._units = {t.name: t.unit for t in config.tags if t.unit}
+        self._topics = {t.name: t.topic for t in config.tags if t.topic}
         self._reader = reader
         self._publisher = publisher
         self._clock = clock
@@ -132,7 +133,10 @@ class Gateway:
             payload = {"value": value, "ts": ts}
             if name in self._units:
                 payload["unit"] = self._units[name]
-            self._publisher.publish(f"tags/{name}", payload)
+            if name in self._topics:
+                self._publisher.publish(self._topics[name], payload, absolute=True)
+            else:
+                self._publisher.publish(f"tags/{name}", payload)
         self.stats.published += len(values)
 
     def _set_plc_state(self, state: str, error: str | None = None) -> None:
