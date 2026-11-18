@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plc-gateway"
+version = "1.0.0"
+description = "Siemens S7 PLC to MQTT gateway: tag-based configuration, publish by exception, automatic reconnection"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Ander Sein Otegui", email = "aseinotegi@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "python-snap7>=2.0",
+    "paho-mqtt>=2.0",
+    "PyYAML>=6.0",
+]
+keywords = ["plc", "siemens", "s7", "snap7", "mqtt", "iiot", "industrial"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: System :: Hardware",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+plc-gateway = "plc_gateway.__main__:main"
+plc-sim = "plc_gateway.simulator:main"
+
+[project.urls]
+Homepage = "https://andersein.com"
+Source = "https://github.com/aseinotegi/snap7_PLC_adquisition"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "BLE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

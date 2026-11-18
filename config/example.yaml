@@ -1,0 +1,34 @@
+# PLC -> MQTT gateway configuration.
+# Secrets and deployment-specific hosts come from the environment:
+#   PLC_HOST, PLC_PORT, MQTT_HOST, MQTT_PORT, MQTT_USERNAME, MQTT_PASSWORD
+
+plc:
+  host: 127.0.0.1      # PLC IP address
+  rack: 0
+  slot: 1              # S7-300: slot 2 · S7-1200/1500: slot 1
+  port: 1102           # 102 on a real PLC; the simulator uses 1102
+
+mqtt:
+  host: localhost
+  port: 1883
+  client_id: plc-gateway-line1
+  base_topic: plant/line1/plc1
+  qos: 1
+  retain: true
+
+gateway:
+  poll_interval_ms: 200   # how often the PLC is read
+  heartbeat_s: 60         # full snapshot + stats even when nothing changes
+  reconnect_max_s: 30     # backoff ceiling while the PLC is unreachable
+
+# Absolute S7 addresses. Recommended practice: copy everything the outside world
+# needs into ONE dedicated DB, so the gateway never touches process blocks.
+tags:
+  - { name: pump_running,        address: DB1.DBX0.0, type: BOOL }
+  - { name: high_pressure_alarm, address: DB1.DBX0.1, type: BOOL }
+  - { name: valve_xv104_closed,  address: DB1.DBX0.2, type: BOOL }
+  - { name: machine_state,       address: DB1.DBW2,   type: INT }
+  - { name: parts_count,         address: DB1.DBD4,   type: DINT }
+  - { name: pi_104_pressure,     address: DB1.DBD8,   type: REAL, unit: bar, deadband: 0.05 }
+  - { name: tank_level,          address: DB1.DBD12,  type: REAL, unit: "%",  deadband: 0.5 }
+  - { name: motor_temperature,   address: DB1.DBD16,  type: REAL, unit: "°C", deadband: 0.2 }
