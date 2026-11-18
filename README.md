@@ -1,79 +1,135 @@
-# SNAP7 PLC Adquisition
+# PLC → MQTT Gateway (Siemens S7)
 
-Este repositorio contiene un conjunto de scripts en Python para la **lectura de datos** desde un **PLC Siemens** usando la librería **Snap7**, y el **envío asíncrono** de dichos datos a un servidor RabbitMQ para su posterior procesamiento o almacenamiento.
+[![CI](https://github.com/aseinotegi/snap7_PLC_adquisition/actions/workflows/ci.yml/badge.svg)](https://github.com/aseinotegi/snap7_PLC_adquisition/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-## Estructura de archivos
+**English** · [Español](README.es.md)
 
-- **`SNAP7_Change_data.py`**  
-  Define la clase `PLC_Instance`, la cual:
-  - Se conecta a un PLC Siemens mediante Snap7.
-  - Lee datos de varios tipos (bool, byte, int16, int32, float) de un DB (Data Block) configurado.
-  - Identifica cuándo hay cambios en los valores leídos y, si detecta alguno, envía esos cambios a un servidor RabbitMQ (cola `datos_plc`).
+Reads data blocks from a Siemens S7 PLC (S7-300/400/1200/1500) and publishes every variable to MQTT **only when it changes**, with timestamps, units and a stable topic contract. It reconnects on its own when the PLC or the broker disappears and never writes to the PLC.
 
-- **`main.py`**  
-  - Importa la clase `PLC_Instance` desde `SNAP7_Change_data.py`.
-  - Configura un objeto `PLC1` indicando cuántos bytes y tipos de datos se leerán:
-    - `DB=1000`  
-    - `B_Bools=400`  (400 bits, equivalentes a 50 bytes, dedicados a señales booleanas)
-    - `B_Bytes=20`   (20 bytes)
-    - `B_Int16=596`  (596 bytes dedicados a variables de 16 bits)
-    - `B_Int32=396`  (396 bytes dedicados a variables de 32 bits)
-    - `B_Float=0`    (0 bytes dedicados a variables tipo float, aunque el código contempla la opción)
-  - Conecta el PLC (por ejemplo, IP `121.11.244.12`, rack 0, slot 1).
-  - Utiliza `asyncio.run(main())` para:
-    1. Leer todos los datos una primera vez (`PLC1.GetAllDataPLC()`).
-    2. En cada iteración, llamar a `PLC1.GetChangeDataPLC()`, que:
-       - Lee el PLC.
-       - Identifica si hay alguna variable que cambió desde la última lectura.
-       - Si hay cambios, envía un mensaje (un `dict` en formato `str`) a RabbitMQ.
+It is the first link of the chain I build in industrial plants: *PLC → broker → database / dashboards / AI*. Try it without hardware: a simulated PLC is included.
 
-## Principios de funcionamiento
+```mermaid
+flowchart LR
+    PLC["Siemens S7 PLC<br/>(or the simulator)"] -- "S7 protocol · read-only<br/>1 request per DB block" --> GW["plc-gateway"]
+    GW -- "JSON · QoS 1 · retained<br/>report by exception" --> B[("MQTT broker")]
+    B --> H["Historian / database"]
+    B --> D["Dashboards"]
+    B --> A["Alarms & AI services"]
+```
 
-1. **Lectura de DB en Snap7**  
-   - El PLC se conecta con `Snap7`, y `db_read` descarga un trozo de memoria (DB) de largo determinado.
-   - El constructor `PLC_Instance` define cuántos bytes se dedican a:
-     - Bits (booleanos).
-     - Bytes puros.
-     - Enteros de 16 bits (`Int16`).
-     - Enteros de 32 bits (`Int32`).
-     - Flotantes (`Float`).
-   - Al leerlos, se asignan offsets en el buffer (por ejemplo, `B_Bools = 400` bits, `B_Bytes = 20` bytes, etc.).
+## Quick start (no PLC needed)
 
-2. **Identificación de datos**  
-   - Los métodos `get_bool`, `get_byte`, `get_int`, `get_dint` y `get_real` (proveídos por la librería `snap7.util`) extraen los valores en cada offset.
-   - Se crea un diccionario (`AllData` o `ChangeData`) con claves como `"Bool_011_o_({byte_index})_{bit_index}"`, `"Byte_011_o_({byte_index})"`, etc.
+```bash
+docker compose up --build
+```
 
-3. **Detección de cambios**  
-   - La clase mantiene `ChangeData_mem`, un diccionario con el último valor conocido de cada variable.
-   - Cada vez que se llama `GetChangeDataPLC()`, se compara el valor actual con el guardado:
-     - Si cambió, se actualiza y se marca en `ChangeData`.
-     - Al final de la lectura, si `ChangeData` no está vacío, se añade un `TimeStamp` y se envía a RabbitMQ.
+Starts Mosquitto, a simulated PLC, the gateway and a subscriber that prints every message. Every two minutes the simulated line pressure peaks at 6.8 bar, the alarm trips and valve XV-104 closes, so you can see real events flowing:
 
-4. **Envío a RabbitMQ**  
-   - Mediante la librería `pika`, se crea una conexión a `localhost` (o la dirección configurada).
-   - Se define la cola `datos_plc`.
-   - Se publica el contenido de `ChangeData` (convertido a `str`) en esa cola.
+```text
+plant/line1/plc1/status/plc               {"state":"connected","ts":"2026-11-18T11:07:25.328+00:00"}
+plant/line1/plc1/tags/pi_104_pressure     {"value":4.231153,"ts":"2026-11-18T11:07:25.329+00:00","unit":"bar"}
+plant/line1/plc1/tags/machine_state       {"value":1,"ts":"2026-11-18T11:07:25.329+00:00"}
+plant/line1/plc1/status                   {"gateway":"online"}
+...
+plant/line1/plc1/tags/high_pressure_alarm {"value":true,"ts":"2026-11-18T11:08:28.830+00:00"}
+plant/line1/plc1/tags/valve_xv104_closed  {"value":true,"ts":"2026-11-18T11:08:30.432+00:00"}
+```
 
-5. **Ejemplo de uso**  
-   - Ajustar IP, rack y slot en `main.py` según tu PLC.
-   - Ajustar la dirección y cola de RabbitMQ en `SNAP7_Change_data.py` (por defecto host=‘localhost’).
-   - Ejecutar `python main.py`.  
-   - Ver en la consola las variables leídas y en la cola de RabbitMQ los mensajes que llegan con los datos cambiados.
+Without Docker:
 
-## Requisitos
+```bash
+pip install -e ".[dev]"
+plc-sim --port 1102 &                                   # simulated PLC
+PLC_PORT=1102 plc-gateway -c config/example.yaml        # needs a broker on localhost:1883
+```
 
-- Python 3.x  
-- Librerías:
-  - `snap7` (para comunicarse con el PLC)
-  - `pika` (para conectarse a RabbitMQ)
-  - `asyncio` (librería estándar de Python para manejo asíncrono)
-- Un PLC Siemens accesible en la IP y DB configurados.
-- Un servidor RabbitMQ corriendo, preferiblemente en la máquina local (localhost) o en la red correspondiente.
+## Configuration
 
-## Notas finales
+The plant layout lives in YAML using **absolute S7 addresses**, exactly as they appear in TIA Portal or STEP 7:
 
-- **Seguridad**: Asegúrate de tener los permisos adecuados en el PLC y en RabbitMQ.
-- **Rendimiento**: Si se requieren altas tasas de lectura, habría que optimizar las conexiones o agrupar lecturas.
-- **Escalabilidad**: Se podría almacenar o procesar los datos recibidos de RabbitMQ en una base de datos u otro servicio.
+```yaml
+plc:
+  host: 192.168.0.10
+  rack: 0
+  slot: 1            # S7-300: 2 · S7-1200/1500: 1
 
-¡Disfruta de la lectura y monitoreo de tu PLC con Snap7 y la mensajería asíncrona de RabbitMQ!
+mqtt:
+  base_topic: plant/line1/plc1
+  qos: 1
+
+gateway:
+  poll_interval_ms: 200
+  heartbeat_s: 60
+
+tags:
+  - { name: pump_running,    address: DB1.DBX0.0, type: BOOL }
+  - { name: machine_state,   address: DB1.DBW2,   type: INT }
+  - { name: pi_104_pressure, address: DB1.DBD8,   type: REAL, unit: bar, deadband: 0.05 }
+```
+
+Supported types: `BOOL`, `BYTE`, `INT`, `WORD`, `DINT`, `DWORD`, `REAL`. The address width is checked against the type (`DBD` with `INT` is rejected at start-up, not at 3 a.m.).
+
+Hosts and secrets come from the environment and never from the file: `PLC_HOST`, `PLC_PORT`, `MQTT_HOST`, `MQTT_PORT`, `MQTT_USERNAME`, `MQTT_PASSWORD`. A password written in the YAML is refused.
+
+> **On S7-1200/1500** the DB must have *Optimized block access* disabled and the CPU must allow *PUT/GET communication* (Protection & Security).
+
+## Topic and payload contract
+
+| Topic | Retained | Payload |
+|---|---|---|
+| `<base>/tags/<name>` | yes | `{"value": 4.23, "ts": "…+00:00", "unit": "bar"}` |
+| `<base>/status` | yes | `{"gateway": "online"}` · broker publishes `offline` via Last Will if the gateway dies |
+| `<base>/status/plc` | yes | `{"state": "connected" \| "disconnected", "ts": "…", "error": "…"}` |
+| `<base>/stats` | no | reads, read errors, published values, reconnects, cycle time |
+
+Retained messages mean a dashboard that connects late immediately gets the last value of every tag.
+
+## Design decisions
+
+- **Read-only by design.** The gateway only reads data blocks. It cannot change the process it observes. Rule number one in a plant: never penalise production.
+- **One DB for the outside world.** Recommended practice: the PLC copies everything external systems need into a single dedicated DB; the gateway touches nothing else.
+- **Few, large reads.** Tags are grouped into contiguous blocks that fit in one S7 PDU, so eight tags cost one request instead of eight. Less load on the PLC's communication processor.
+- **Report by exception.** Only changed values are published. Analog values use a deadband measured against the last *published* value, so slow drifts are still reported once they add up. In the demo, 90 seconds of polling (449 reads × 8 tags) produced 275 messages instead of 3,592.
+- **Heartbeat.** A full snapshot and counters every `heartbeat_s`, so historians see the line is alive even when nothing moves.
+- **Fail and recover visibly.** PLC down → `status/plc` changes once (no log spam) and reconnection is retried with exponential backoff (1 s, 2 s, 4 s … 30 s). After reconnecting, every tag is republished. The MQTT client reconnects by itself and Last Will reports a dead gateway.
+
+## Project layout
+
+```text
+src/plc_gateway/
+  tags.py        S7 address parsing, decoding, read planning
+  config.py      YAML + environment, validation
+  plc.py         Snap7 reader (read-only)
+  change.py      report by exception with deadbands
+  gateway.py     polling loop, heartbeat, backoff
+  publisher.py   MQTT topics, Last Will, JSON payloads
+  simulator.py   simulated S7 PLC for demos and tests
+tests/           unit tests + integration test against a real Snap7 server
+```
+
+## Tests
+
+```bash
+pytest -q        # 40 tests, including a real S7 round-trip against the simulator
+ruff check .
+```
+
+CI runs them on Python 3.10–3.13 and builds the Docker image on every push.
+
+## Roadmap
+
+- TLS for MQTT and certificate configuration
+- Sparkplug B payloads for SCADA/IIoT platforms
+- OPC UA source alongside S7
+
+## History
+
+The first version was a pair of scripts publishing raw dictionaries to RabbitMQ. It is kept in the git history under the tag `v0-scripts`; this rewrite turns the same idea into a configurable, tested service.
+
+---
+
+**Ander Sein** · IIoT & industrial automation engineer · [andersein.com](https://andersein.com) · [LinkedIn](https://www.linkedin.com/in/ander-sein-a24097195/)
+
+MIT License
